@@ -6,14 +6,50 @@ echo ===================================================
 echo     Launching Portable AI Engine from USB...       
 echo ===================================================
 
+:: -------------------------------------------------------
+:: IMPORTANT: All paths must point to USB, not the PC!
+:: -------------------------------------------------------
+
 :: Set Ollama model data path to the USB drive
 set "OLLAMA_MODELS=%~dp0ollama\data"
 
-:: Override APPDATA so AnythingLLM saves ALL data on the USB (not on host PC!)
-set "APPDATA=%~dp0anythingllm_data"
-
-:: Set STORAGE_DIR so AnythingLLM uses official portable data path
+:: Tell AnythingLLM to store ALL its data on the USB
+:: STORAGE_DIR is the official AnythingLLM portable env var
 set "STORAGE_DIR=%~dp0anythingllm_data"
+set "ANYTHINGLLM_PROFILE=%STORAGE_DIR%\anythingllm-desktop"
+set "ROAMING_PROFILE=%USERPROFILE%\AppData\Roaming\anythingllm-desktop"
+set "PROFILE_BACKUP=%USERPROFILE%\AppData\Roaming\anythingllm-desktop.host-backup"
+
+:: Also override APPDATA AND XDG paths for Electron safety net
+set "APPDATA=%~dp0anythingllm_data"
+set "LOCALAPPDATA=%~dp0anythingllm_data"
+
+:: Create the data folder on USB if it doesn't exist
+if not exist "%~dp0anythingllm_data" mkdir "%~dp0anythingllm_data"
+if not exist "%ANYTHINGLLM_PROFILE%" mkdir "%ANYTHINGLLM_PROFILE%"
+
+:: Some desktop builds still resolve to %APPDATA%\anythingllm-desktop.
+:: Redirect that roaming profile back to the USB so chats stay portable.
+if exist "%ROAMING_PROFILE%" (
+    dir /AL "%USERPROFILE%\AppData\Roaming" | findstr /I /C:"anythingllm-desktop" >nul
+    if errorlevel 1 (
+        echo Migrating existing AnythingLLM profile from this computer to the USB...
+        robocopy "%ROAMING_PROFILE%" "%ANYTHINGLLM_PROFILE%" /E >nul
+        if exist "%PROFILE_BACKUP%" rmdir /S /Q "%PROFILE_BACKUP%" >nul 2>&1
+        ren "%ROAMING_PROFILE%" "anythingllm-desktop.host-backup" >nul 2>&1
+    )
+)
+if not exist "%ROAMING_PROFILE%" (
+    mklink /J "%ROAMING_PROFILE%" "%ANYTHINGLLM_PROFILE%" >nul
+)
+if not exist "%ROAMING_PROFILE%" (
+    echo.
+    echo ERROR: Could not redirect AnythingLLM profile to the USB drive.
+    echo Close this window, then run it again as the current Windows user.
+    echo.
+    pause
+    exit /b 1
+)
 
 :: Start Ollama Engine silently in the background
 echo Starting Ollama Engine...
@@ -36,7 +72,8 @@ if exist "%~dp0anythingllm_app\AnythingLLM.exe" (
 
 echo.
 echo First time Windows Setup: Extracting AnythingLLM to USB...
-echo (This will take 1-3 minutes depending on your USB speed!)
+echo Extracting AnythingLLM to USB...
+echo (Fast USB: 1-3 min ^| Slow USB: up to 30-40 min. Do NOT close this window!)
 echo Please wait patiently and do not close this window...
 
 taskkill /F /IM "AnythingLLM.exe" /IM "AnythingLLMDesktop.exe" >nul 2>&1
@@ -74,7 +111,9 @@ pause
 exit /b
 
 :LaunchApp
-start "" "%APP_PATH%"
+:: Pass --user-data-dir directly to Electron to FORCE data storage on USB
+:: This is the most reliable method — overrides all internal Electron path logic
+start "" "%APP_PATH%" --user-data-dir="%~dp0anythingllm_data"
 
 :Running
 echo.
