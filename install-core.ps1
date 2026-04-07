@@ -88,7 +88,8 @@ if (Test-Path "$USB_Drive\anythingllm\AnythingLLM.exe") {
     }
     
     # Silently extract it directly onto the USB (no install popup!)
-    Write-Host "      Extracting AnythingLLM to USB (this takes 1-2 minutes)..." -ForegroundColor Magenta
+    Write-Host "      Extracting AnythingLLM to USB..." -ForegroundColor Magenta
+    Write-Host "      (Fast USB: 1-2 min  |  Slow USB: up to 30-40 min. Do NOT close this window!)" -ForegroundColor Yellow
     
     # Use the 8.3 short path to avoid issues with spaces in folder names
     $ShortPath = (New-Object -ComObject Scripting.FileSystemObject).GetFolder($USB_Drive).ShortPath
