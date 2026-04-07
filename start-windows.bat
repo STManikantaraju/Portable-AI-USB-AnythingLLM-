@@ -97,23 +97,35 @@ timeout /t 3 >nul
 :: Find and launch AnythingLLM
 echo Starting AnythingLLM Interface...
 
-if exist "%~dp0anythingllm_data\Programs\anythingllm-desktop\AnythingLLM.exe" (
-    set "APP_PATH=%~dp0anythingllm_data\Programs\anythingllm-desktop\AnythingLLM.exe"
+if exist "%~dp0anythingllm\AnythingLLM.exe" (
+    set "APP_PATH=%~dp0anythingllm\AnythingLLM.exe"
     goto LaunchApp
 )
 
 echo.
-echo ERROR: AnythingLLM was not found on this USB drive!
-echo It appears the installation process is not complete.
+echo ERROR: AnythingLLM was not found in 'anythingllm' folder!
+echo.
+echo Directory Listing for Diagnostic:
+dir "%~dp0anythingllm"
+echo.
 echo Please run install.bat first to download and extract everything.
 echo.
 pause
 exit /b
 
 :LaunchApp
-:: Pass --user-data-dir directly to Electron to FORCE data storage on USB
-:: This is the most reliable method — overrides all internal Electron path logic
-start "" "%APP_PATH%" --user-data-dir="%~dp0anythingllm_data"
+:: CRITICAL: We MUST wipe Electron path caches for true portability!
+:: This fixes the "JavaScript error (ENOENT)" when moving USBs between PCs.
+if exist "%~dp0anythingllm_data\config.json" del /q "%~dp0anythingllm_data\config.json"
+if exist "%~dp0anythingllm_data\Cache" rmdir /s /q "%~dp0anythingllm_data\Cache"
+if exist "%~dp0anythingllm_data\Code Cache" rmdir /s /q "%~dp0anythingllm_data\Code Cache"
+if exist "%~dp0anythingllm_data\GPUCache" rmdir /s /q "%~dp0anythingllm_data\GPUCache"
+
+:: CRITICAL: We MUST pushd into the app directory for the portable app to find its own resources!
+pushd "%~dp0anythingllm"
+:: Pass --user-data-dir 
+start "" "AnythingLLM.exe" --user-data-dir="%~dp0anythingllm_data"
+popd
 
 :Running
 echo.

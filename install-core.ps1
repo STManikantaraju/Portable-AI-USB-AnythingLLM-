@@ -329,8 +329,8 @@ Write-Host "[2/6] Creating folders on USB drive..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Force -Path "$USB_Drive\models" | Out-Null
 New-Item -ItemType Directory -Force -Path "$USB_Drive\ollama" | Out-Null
 New-Item -ItemType Directory -Force -Path "$USB_Drive\anythingllm" | Out-Null
-New-Item -ItemType Directory -Force -Path "$USB_Drive\anythingllm_data\Programs" | Out-Null
-New-Item -ItemType Directory -Force -Path "$USB_Drive\anythingllm_data\anythingllm-desktop" | Out-Null
+New-Item -ItemType Directory -Force -Path "$USB_Drive\anythingllm_data" | Out-Null
+New-Item -ItemType Directory -Force -Path "$USB_Drive\installer_data" | Out-Null
 Write-Host "      Done." -ForegroundColor Green
 
 # =================================================================
@@ -465,11 +465,14 @@ if (Test-Path "$USB_Drive\ollama\ollama.exe") {
 Write-Host ""
 Write-Host "[6/6] Downloading AnythingLLM Chat Interface..." -ForegroundColor Yellow
 $AnythingLLMURL = "https://cdn.anythingllm.com/latest/AnythingLLMDesktop.exe"
-$InstallerDest  = "$USB_Drive\anythingllm\AnythingLLMDesktop.exe"
+$InstallerDest  = "$USB_Drive\installer_data\AnythingLLMDesktop.exe"
 
 # Check if we already extracted AnythingLLM previously
-if (Test-Path "$USB_Drive\anythingllm_data\Programs\anythingllm-desktop\AnythingLLM.exe") {
-    Write-Host "      AnythingLLM already set up! Skipping..." -ForegroundColor Green
+$ExistingApp = "$USB_Drive\anythingllm\AnythingLLM.exe"
+if (Test-Path $ExistingApp -PathType Leaf) {
+    $size = [math]::Round((Get-Item $ExistingApp).Length / 1MB, 2)
+    Write-Host "      Found existing AI: anythingllm\AnythingLLM.exe ($size MB)" -ForegroundColor Green
+    Write-Host "      AnythingLLM already set up! Skipping download..." -ForegroundColor Green
 } else {
     # Download the installer
     if (-Not (Test-Path $InstallerDest) -or (Get-Item $InstallerDest).Length -lt 10000000) {
@@ -478,29 +481,28 @@ if (Test-Path "$USB_Drive\anythingllm_data\Programs\anythingllm-desktop\Anything
     }
 
     if (Test-Path $InstallerDest) {
-        # Silently extract it directly onto the USB (no install popup!)
-        Write-Host "      Extracting AnythingLLM to USB..." -ForegroundColor Magenta
-        Write-Host "      (Fast USB: 8-10 min  |  Slow USB: up to 40-50 min. Do NOT close!)" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  **********************************************************" -ForegroundColor Red
+        Write-Host "  *  STOP! MANUAL ACTION REQUIRED!                          *" -ForegroundColor Red
+        Write-Host "  **********************************************************" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "  1. The official AnythingLLM installer will open now." -ForegroundColor Yellow
+        Write-Host "  2. When it asks for 'Install Location', choose your USB!" -ForegroundColor Red
+        Write-Host "     Path: $USB_Drive\anythingllm" -ForegroundColor White
+        Write-Host "  3. Wait for it to finish, then close the installer." -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  Launching installer window now..." -ForegroundColor Magenta
 
-        # Temporarily force Windows to think AppData is on the USB drive
-        $originalLocalAppData = $env:LOCALAPPDATA
-        $originalAppData = $env:APPDATA
-        $env:LOCALAPPDATA = "$USB_Drive\anythingllm_data"
-        $env:APPDATA = "$USB_Drive\anythingllm_data"
+        # Launch the installer in interactive mode (no silent flags)
+        Start-Process -FilePath $InstallerDest -Wait
 
-        # Run the installer silently as the current user, letting it drop into the fake AppData folder
-        Start-Process -FilePath $InstallerDest -ArgumentList "/CURRENTUSER /S" -Wait
-
-        # Restore original paths
-        $env:LOCALAPPDATA = $originalLocalAppData
-        $env:APPDATA = $originalAppData
-
-        # Clean up the installer to save space
-        if (Test-Path "$USB_Drive\anythingllm_data\Programs\anythingllm-desktop\AnythingLLM.exe") {
+        if (Test-Path "$USB_Drive\anythingllm\AnythingLLM.exe") {
+            Write-Host "      AnythingLLM installed successfully to USB!" -ForegroundColor Green
+            # Cleanup the installer file to save space
             Remove-Item $InstallerDest -Force -ErrorAction SilentlyContinue
-            Write-Host "      AnythingLLM extracted and ready!" -ForegroundColor Green
         } else {
-            Write-Host "      WARNING: AnythingLLM failed to install completely to USB." -ForegroundColor Yellow
+            Write-Host "      WARNING: AnythingLLM.exe not found on USB." -ForegroundColor Yellow
+            Write-Host "      If you installed it locally, it won't be portable!" -ForegroundColor Yellow
         }
     } else {
         Write-Host "      ERROR: AnythingLLM download failed!" -ForegroundColor Red
@@ -660,4 +662,3 @@ Write-Host "  between your installed models." -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "Press any key to close this installer..." -ForegroundColor Yellow
 $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") | Out-Null
-z1q2
